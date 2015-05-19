@@ -26,7 +26,9 @@ import time
 # sys.path.append("/home/YOUR_NAME/path/to/Leap_Developer/Leap_Developer/LeapSDK/lib/x64")
 import threading
 import Leap
+import math
 from Leap import CircleGesture, KeyTapGesture, ScreenTapGesture, SwipeGesture
+from math import *
 
 
 class LeapInterface(Leap.Listener):
@@ -43,6 +45,9 @@ class LeapInterface(Leap.Listener):
         self.hand_yaw       = 0.0
         self.hand_roll      = 0.0
 	self.gesture_type= 0
+	self.fingerDistance = 0.0
+	self.f1pos= [0,0,0]
+	self.f2pos = [0,0,0]
         print "Initialized Leap Motion Device"
 
     def on_connect(self, controller):
@@ -64,26 +69,32 @@ class LeapInterface(Leap.Listener):
     def on_frame(self, controller):
         # Get the most recent frame and report some basic information
         frame = controller.frame()
+	#Get a gesture when the device recognise it
 	if not frame.gestures().is_empty:
-			for gesture in frame.gestures():	 
-				if gesture.type == Leap.Gesture.TYPE_SWIPE:
-						swipe = SwipeGesture(gesture)
-						self.gesture_type =1
-				
+		for gesture in frame.gestures():	 
+			if gesture.type == Leap.Gesture.TYPE_SWIPE:
+					swipe = SwipeGesture(gesture)
+					self.gesture_type =1
+		
 
-				if gesture.type == Leap.Gesture.TYPE_KEY_TAP:
-						circle = SwipeGesture(gesture)
-						self.gesture_type       =4
-				
-				if gesture.type == Leap.Gesture.TYPE_CIRCLE:
-						tap = SwipeGesture(gesture)
-						self.gesture_type       =5
+			if gesture.type == Leap.Gesture.TYPE_KEY_TAP:
+					circle = SwipeGesture(gesture)
+					self.gesture_type       =4
+		
+			if gesture.type == Leap.Gesture.TYPE_CIRCLE:
+					tap = SwipeGesture(gesture)
+					self.gesture_type       =5
 	else:
 		self.gesture_type       =0
-
-        print "Frame id: %d, timestamp: %d, hands: %d, fingers: %d, tools: %d, gestures: %d, type_gesture: %d" % (
-              frame.id, frame.timestamp, len(frame.hands), len(frame.fingers), len(frame.tools), len(frame.gestures()),(self.gesture_type))
-
+	# Get the position of the first two finger which form a gripper
+	self.f1pos[0] = frame.pointables[0].tip_position[0]
+	self.f1pos[1] = frame.pointables[0].tip_position[1]
+	self.f1pos[2] = frame.pointables[0].tip_position[2]
+	self.f2pos[0] = frame.pointables[1].tip_position[0]
+	self.f2pos[1] = frame.pointables[1].tip_position[1]
+	self.f2pos[2] = frame.pointables[1].tip_position[2]
+	self.fingerDistance = math.sqrt(math.pow((self.f2pos[0]-self.f1pos[0]),2)+math.pow((self.f2pos[1]-self.f1pos[1]),2)+math.pow((self.f2pos[2]-self.f1pos[2]),2))
+	print "Frame id: %d, timestamp: %d, hands: %d, fingers: %d, distance finger: %d, tools: %d, gestures: %d, type_gesture: %d" % (frame.id, frame.timestamp, len(frame.hands), len(frame.fingers), self.fingerDistance, len(frame.tools), len(frame.gestures()),(self.gesture_type))	
         if not frame.hands.is_empty: #recently changed in API
             # Get the first hand
             
@@ -109,7 +120,7 @@ class LeapInterface(Leap.Listener):
                 self.left_hand=False
                         
             self.hand = frame.hands[0] #old way
-
+            
             # Check if the hand has any fingers
             #fingers = self.hand.fingers
             #if not fingers.empty:
@@ -220,7 +231,13 @@ class LeapInterface(Leap.Listener):
         return self.hand_roll
     def get_hand_gesture(self):
 	return self.gesture_type
- 
+    def get_fingers_distance(self):
+	return self.fingerDistance
+    def get_fingers_pos1(self):
+	return self.f1pos
+    def get_fingers_pos2(self):
+	return self.f2pos
+
 
 class Runner(threading.Thread):
 
@@ -253,6 +270,12 @@ class Runner(threading.Thread):
         return self.listener.get_hand_yaw()
     def get_hand_gesture(self):
 	return self.listener.get_hand_gesture()
+    def get_fingers_distance(self):
+	return self.listener.get_fingers_distance()
+    def get_fingers_pos1(self):
+	return self.listener.get_fingers_pos1()
+    def get_fingers_pos2(self):
+	return self.listener.get_fingers_pos2()
 
 
     def run (self):
